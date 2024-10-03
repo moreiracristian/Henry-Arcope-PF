@@ -1,0 +1,5 @@
+logo original
+#393939 negro/gris
+#FE5C36 naranja
+#53AFBE celeste
+#FEB449 amarillo
