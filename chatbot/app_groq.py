@@ -4,6 +4,55 @@ import streamlit as st
 # Inicializo el cliente de Groq
 client = Groq(api_key="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")
 
+# CSS personalizado para estilo similar a Uber
+st.markdown(
+    """
+    <style>
+    
+    body {
+        background-color: #333333; /* Fondo negro */
+        color: #ffffff; /* Texto blanco */
+        font-family: 'Arial', sans-serif;  Fuente minimalista
+    }
+    .stButton>button {
+        background-color: #333333; /* Color del botón gris */
+        color: white; 
+        border-radius: 25px; /* Bordes redondeados */
+        padding: 10px 20px;
+        font-size: 16px;
+        font-weight: bold;
+    }
+    .stButton>button:hover {
+        background-color: #000000; /* Hover más oscuro */
+    }
+    .stSelectbox, .stTextInput, .stRadio>div {
+        background-color: #1DBF73; /* Fondo gris oscuro para inputs */
+        color: #000000;
+        border-radius: 10px; /* Bordes redondeados para inputs */
+        padding: 10px;
+        margin-bottom: 20px;
+    }
+    .stSelectbox>div>div>label, .stTextInput>div>label, .stRadio>div>label {
+        color: black;
+        font-weight: bold;
+    }
+    
+    .stMarkdown h1 {
+        color: #333333; /* Título en gris */
+        font-weight: bold;
+    }
+    .stMarkdown h3 {
+        color: #333333; /* Subtítulo en gris */
+        font-weight: bold;
+    }
+    .stMarkdown p {
+        color: #333333;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+    
 def get_ai_response(messages, max_words=500):
     """Función que hace una llamada a la API de Groq para obtener la respuesta."""
     completion = client.chat.completions.create(
