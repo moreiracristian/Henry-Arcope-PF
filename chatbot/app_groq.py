@@ -10,8 +10,8 @@ st.markdown(
     <style>
     
     body {
-        background-color: #333333; /* Fondo negro */
-        color: #ffffff; /* Texto blanco */
+        background-color: #ffffff; /* Fondo negro */
+        color: #333333; /* Texto blanco */
         font-family: 'Arial', sans-serif;  Fuente minimalista
     }
     .stButton>button {
