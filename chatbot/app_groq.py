@@ -26,7 +26,7 @@ st.markdown(
         background-color: #000000; /* Hover más oscuro */
     }
     .stSelectbox, .stTextInput, .stRadio>div {
-        background-color: #000000; /* Fondo gris oscuro para inputs */
+        background-color: #ffffff; /* Fondo gris oscuro para inputs */
         color: #000000;
         border-radius: 10px; /* Bordes redondeados para inputs */
         padding: 10px;
