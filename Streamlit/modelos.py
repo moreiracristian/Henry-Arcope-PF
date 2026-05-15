@@ -1,327 +1,234 @@
 import streamlit as st
-import acercaDe  # Importar la página 'home.py'
-import dashboard  # Importar la página 'dashboard.py'
-import modelos  # Importar la página 'modelos_ml.py'
-import inicio # Importar la página 'inicio.py'
-import base64
-from PIL import Image
+import joblib
 import pandas as pd
 import plotly.express as px
 from sklearn.preprocessing import StandardScaler
-import joblib
 
-# Configurar la página principal
-st.set_page_config(
-    page_title="Sistema de Vehículos Eficientes",
-    page_icon="🚗",
-    layout="centered",
-)
+
+@st.cache_resource
+def cargar_clasificador():
+    return joblib.load('./Modelos_ML/modelo_rf.joblib')
+
+
+@st.cache_resource
+def cargar_modelo_eficiencia():
+    return joblib.load('./Modelos_ML/Modelo_ML1.joblib')
+
+
+@st.cache_data
+def cargar_vehiculos():
+    df = pd.read_parquet('./Data/Df_vfed.parquet')
+    df = df[(df['Year'] > 2010) & (df['CO2 (p/mile)'] >= 0)].copy()
+
+    def categorizar(row):
+        if row['Alternative Fuel'] == 'Electricity':
+            return 'Híbrido'
+        elif row['Fuel'] == 'Electricity':
+            return 'Eléctrico'
+        elif row['Alternative Fuel'] in ['E85', 'No'] and row['Fuel'] != 'Natural Gas' and row['CO2 (p/mile)'] > 0:
+            return 'Convencional'
+        return 'Gas'
+
+    df['Categoria'] = df.apply(categorizar, axis=1)
+    df['Vehículo_unico'] = df['Manufacturer'] + ' ' + df['Model'] + ' ' + df['Year'].astype(str)
+    return df
+
+
+def _predecir_y_mostrar(df_filtrado, modelo):
+    if df_filtrado.empty:
+        st.warning('No se encontraron vehículos que cumplan ese criterio.')
+        return
+    X = df_filtrado[['Year', 'Miles per gallon (mpg)', 'CO2 (p/mile)', 'FuelCost']]
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    resultado = df_filtrado.copy()
+    resultado['Eficiencia'] = modelo.predict(X_scaled)
+    recomendados = resultado.sort_values('Eficiencia', ascending=False).head(5)
+    st.session_state['dataset'] = recomendados
+    st.success('Top 5 vehículos más eficientes energéticamente:')
+    st.dataframe(
+        recomendados[['Year', 'Vehículo_unico', 'Miles per gallon (mpg)', 'CO2 (p/mile)', 'FuelCost', 'Categoria']],
+        use_container_width=True,
+    )
+
 
 def modelos_page():
-    
-    
-    # Inicializar el estado de la sesión
     if 'page' not in st.session_state:
         st.session_state.page = 'Portada'
 
-    # Función para mostrar la página de presentación
-    def mostrar_Modelos():
-        st.session_state.page = 'Portada'
-
-    # Función para mostrar la página del ML1
-    def mostrar_Modelo_1():
-        st.session_state.page = 'Eficiencia_E'
-
-    # Crear botones para cambiar de página
-    col1, col2 = st.columns([1, 1])
+    col1, col2 = st.columns(2)
     with col1:
         if st.button('Portada'):
-            mostrar_Modelos()
-
+            st.session_state.page = 'Portada'
     with col2:
-        if st.button('Eficiencia_E'):
-            mostrar_Modelo_1()
-    # CSS para estilizar los botones
+        if st.button('Eficiencia Energética'):
+            st.session_state.page = 'Eficiencia_E'
+
     st.markdown("""
         <style>
         .stButton>button {
             background-color: #333333;
-            margin: 0 auto;
-            display: flex;
-            justify-content: center;
             color: white;
             border: none;
             padding: 10px 24px;
-            text-align: center;
-            font-size: 22px;
+            font-size: 18px;
             cursor: pointer;
-            transition-duration: 0.4s;
+            transition-duration: 0.3s;
             border-radius: 12px;
-            display: inline-block;
-            width: 50%;
+            width: 100%;
         }
-
         .stButton>button:hover {
             background-color: white;
             color: black;
             border: 2px solid #333333;
         }
-       
         </style>
     """, unsafe_allow_html=True)
 
-    # Mostrar la página correspondiente
-    #Pagina inicial
+    # ── PORTADA ────────────────────────────────────────────────────────────────
     if st.session_state.page == 'Portada':
         st.markdown("""
-        <style>
-        .titulo-portada {
-            font-size: 50px;
-            color: #FFFFFF; /* Cambia el color del título */
-            font-weight: bold;
-            text-align: center; /* Centrar el título */
-            padding: 20px; /* Espaciado */
-            background-color: #000000; /* Fondo detrás del título */
-            border-radius: 10px; /* Bordes redondeados */
-            box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.2); /* Sombra para darle más profundidad */
+        <div style="font-size:44px; color:#FFFFFF; font-weight:bold; text-align:center;
+                    padding:20px; background-color:#000000; border-radius:10px;
+                    box-shadow:2px 2px 12px rgba(0,0,0,0.2); margin-bottom:20px;">
+            Plataforma de Vehículos Eficientes
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.write("""
+            Esta plataforma usa modelos de machine learning entrenados sobre datos reales
+            para recomendar vehículos eficientes y calcular ahorros operativos concretos.
+        """)
+
+        # ── Métricas del modelo ───────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("#### Métricas del Clasificador de Tipo de Vehículo")
+        st.caption("RandomForestClassifier · `costo_operacional_vehiculos_clean.csv` · test_size=0.30 · random_state=42")
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Accuracy", "90%")
+        c2.metric("Registros totales", "3,813")
+        c3.metric("Split de prueba", "30%")
+        c4.metric("Clases", "3")
+
+        st.markdown("---")
+
+        # ── Feature importance ────────────────────────────────────────────────
+        try:
+            clf = cargar_clasificador()
+            features = ['Fuel_Cost', 'Electric_Cost', 'Noise_Level']
+            importances = clf.feature_importances_.tolist()
+            fig = px.bar(
+                x=importances,
+                y=features,
+                orientation='h',
+                labels={'x': 'Importancia relativa', 'y': 'Variable'},
+                title='Importancia de Variables — Clasificador de Tipo de Vehículo',
+                color=importances,
+                color_continuous_scale='Greens',
+            )
+            fig.update_layout(
+                showlegend=False,
+                coloraxis_showscale=False,
+                height=260,
+                margin=dict(l=10, r=10, t=40, b=10),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception:
+            st.info("Gráfico de importancia no disponible (modelo no encontrado).")
+
+        # ── Distribución del dataset ──────────────────────────────────────────
+        st.markdown("---")
+        dist_data = {
+            'Tipo': ['Convencional', 'Híbrido', 'Eléctrico'],
+            'Registros': [2710, 884, 219],
         }
-        </style>
-        <div class="titulo-portada">
-            Bienvenidos a la Plataforma de Vehículos Eficientess
-        </div>
-        """, unsafe_allow_html=True)
-        st.write("""
-            Esta plataforma utiliza dos modelos de machine learning para optimizar la eficiencia de vehículos y maximizar ahorros operativos. 
-            Explore cada modelo para obtener predicciones personalizadas sobre los vehículos.
-        """)
-        st.markdown("""
-        <h2 style='text-align: center;'>Modelo de eficiencia energética</h2>
-        """, unsafe_allow_html=True)
-        st.write("""
-        Para el modelo de eficiencia energética se optiene como resultado 5 vehículos altamente eficientes en conceptos como es el gasto de combustible, costo de combustible y produccción de CO2, de esta manera se va a tomar la mejor decición a la hora de agregar un nuevo vehículo a la flota que priorice bajos costos en combustible y ademas sea amigable con el medio ambiente
-        """)
+        fig2 = px.pie(
+            dist_data,
+            names='Tipo',
+            values='Registros',
+            title='Distribución de vehículos en el dataset de entrenamiento',
+            color_discrete_sequence=['#636EFA', '#00CC96', '#EF553B'],
+            hole=0.4,
+        )
+        fig2.update_layout(height=300, margin=dict(t=40, b=10))
+        st.plotly_chart(fig2, use_container_width=True)
 
-        # Centrar imagen
-        st.markdown("""
-        <div style="text-align: center;">
-            <img src="https://fullandfast.com/blog/wp-content/uploads/2020/03/uber-vehiculo-electrico.jpg" alt="Amigables con el planeta" width="400"/>
-            <p>Amigables con el planeta</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <h2 style='text-align: center;'>Modelo de maximización operativa y preventa de vehículo</h2>
-        """, unsafe_allow_html=True)
-        st.write("""
-        Para el modelo de maximización operativa y preventa de vehículo se tiene como objetivo dos predicciones, la primera donde podemos encontrar una gama de vehículos con los menores gastos operativos, apartir de esto se puede tomar una deciones de costo y beneficio a largo plazo, por ultimo tenemos un modelo que predice la preventa de un vehículo, lo cual nos permite saber que tan balorizado esta y de esta manera tomar la mejor decición a la hora de vender
-        """)
-        # Centrar imagen
-        st.markdown("""
-        <div style="text-align: center;">
-            <img src="https://www.redeweb.com/wp-content/uploads/2017/06/04_1881685204.jpg" alt="Pensando en tu economia" width="400"/>
-            <p>Amigables con el planeta</p>
-        </div>
-        """, unsafe_allow_html=True)
+        # ── Descripción de cada modelo ────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("<h3 style='text-align:center;'>Modelos disponibles</h3>", unsafe_allow_html=True)
 
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.markdown("**Eficiencia Energética**")
+            st.write(
+                "Recomienda los 5 vehículos más eficientes filtrados por fabricante y año, "
+                "priorizando bajo consumo, menor costo operativo y mínimas emisiones de CO₂."
+            )
+        with col_b:
+            st.markdown("**Maximización Operativa** *(próximamente)*")
+            st.write(
+                "Identifica vehículos con menores costos operativos totales y predice "
+                "su valor de reventa para decisiones de costo-beneficio a largo plazo."
+            )
 
-        # Pagina del modelo 1
+    # ── EFICIENCIA ENERGÉTICA ─────────────────────────────────────────────────
     elif st.session_state.page == 'Eficiencia_E':
-        #Segundo modelo de ML1 
-        # Imagen de la empresa
-        # Definir estilo CSS personalizado para el logotipo
-        st.markdown("""
-        <style>
-        .image-container {
-            text-align: center;
-            margin-top: 20px;
-            margin-bottom: 40px;
-        }
-        .image-container img {
-            width: 150px;  /* Ajustar el tamaño de la imagen */
-            border-radius: 50%;  /* Hacerla circular */
-            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);  /* Añadir sombra */
-        }
-        </style>
-        <div class="image-container">
-            <img src="https://pbs.twimg.com/profile_images/1042867341476995078/antCC8gJ_400x400.jpg" alt="Logo" width="400">
-        </div>
-        """, unsafe_allow_html=True)
+        st.title("Recomendador de Vehículos Eficientes")
+        st.write("Filtrá por año y fabricante para ver los 5 vehículos con mejor eficiencia energética.")
 
-        # Cargamos el modelo guardado 
-        modelo_ML1 = joblib.load('./Modelos_ML/Modelo_ML1.joblib')
-        # Cargamos el dataset
-        df_Vehiculos = pd.read_parquet('./Data/Df_vfed.parquet')
-        df_Vehiculos_N = df_Vehiculos[df_Vehiculos['Year'] > 2010]
-        df_Vehiculos_F = df_Vehiculos_N[df_Vehiculos_N['CO2 (p/mile)'] >= 0]
-        # Realizamos una función para categorizar los vehículos
-        def categorizar_vehiculos(row):
-            if row['Alternative Fuel'] == 'Electricity':
-                return 'Híbrido'
-            elif row['Fuel'] == 'Electricity':
-                return 'Eléctrico'
-            elif row['Alternative Fuel'] in ['E85', 'No'] and row['Fuel'] != 'Natural Gas' and row['CO2 (p/mile)'] > 0:
-                return 'Comvencional'
-            else:
-                return 'Gas'    
-        # Aplicamos la función 
-        df_Vehiculos_F['Categoria'] = df_Vehiculos_F.apply(categorizar_vehiculos, axis=1)
-        #  Creamos una columna unica 
-        df_Vehiculos_F['Vehículo_unico'] = df_Vehiculos_F['Manufacturer'] + ' ' + df_Vehiculos_F['Model']+ ' ' + df_Vehiculos_F['Year'].astype(str)
-        # 2P
-        #Obtenemos las marcas de los vehículos 
-        Marcas = df_Vehiculos_F['Manufacturer'].unique().tolist()
-        # Agregamos Todos 
-        Marcas.insert(0, 'Todos')
-        #Creamos una lista de los años
-        anios_unicos = list(range(2011, 2024))
-        # Agregamos unicos
-        anios_unicos.insert(0, 'Todos')
-        # Titulo 
-        st.title("Análisis de Eficiencia de Vehículos")
-        st.write("Bienvenido a la plataforma de análisis de eficiencia energética para vehículos.")
+        try:
+            modelo = cargar_modelo_eficiencia()
+            df_vehiculos = cargar_vehiculos()
+        except Exception as e:
+            st.error(f"No se pudo cargar el modelo o los datos: {e}")
+            return
 
-        # Entrada de usuario: año y fabricante
-        año = st.selectbox('Seleccione el año del Vehículo', anios_unicos, help="Elige un año de la lista")
-        fabricante = st.selectbox('Seleccione la marca del vehículo', Marcas, help="Elige una marca de vehículo")
+        marcas = ['Todos'] + sorted(df_vehiculos['Manufacturer'].unique().tolist())
+        anios = ['Todos'] + list(range(2023, 2010, -1))
 
-        # Boton para ejecutar la predicción
-        if st.button('Obtener recomendacion'):
-            # Condición si el usuario escoge tanto el año como el fabricante
-            if año != 'Todos' and fabricante != 'Todos':
-                # Filtrar vehiculos por año y fabricante
-                Vehiculos_filtrado = df_Vehiculos_F[(df_Vehiculos_F['Year'] == año) & (df_Vehiculos_F['Manufacturer'] == fabricante)]
-                # Verificar si hay vehículos que cumplar con esta condición 
-                if len(Vehiculos_filtrado) > 0:
-                    #Estandarizamos las caracteristicas
-                    X = Vehiculos_filtrado[['Year', 'Miles per gallon (mpg)', 'CO2 (p/mile)', 'FuelCost']]
-                    scaler = StandardScaler()
-                    X_scaled = scaler.fit_transform(X)
-                    # Hacemos las predicciones con el modelo 
-                    predicciones = modelo_ML1.predict(X_scaled)
-                    # Añadimos las predicciones al dataframe
-                    Vehiculos_filtrado['Eficiencia'] = predicciones
-                    # Ordenas por eficiencia de mayor a menor
-                    vehiculos_recomendados = Vehiculos_filtrado.sort_values(by='Eficiencia', ascending=False).head(5)
-                    st.session_state['dataset'] = vehiculos_recomendados
-                    # Mostrar los 5 vehículos recomendados 
-                    st.write('Los 5 vehículos mas eficientes energeticamente son:')
-                    st.dataframe(vehiculos_recomendados[['Year', 'Vehículo_unico']])
-                else: 
-                    st.write('No se encontraron vehículos que cumplan con ese citerio')
-            # Condición si solo escoge al fabricante
-            elif fabricante != 'Todos' and año == 'Todos':
-                # Filtrar vehiculos por fabricante
-                Vehiculos_filtrado = df_Vehiculos_F[df_Vehiculos_F['Manufacturer'] == fabricante]
-                # Verificar si hay vehículos que cumplar con esta condición 
-                if len(Vehiculos_filtrado) > 0:
-                    #Estandarizamos las caracteristicas
-                    X = Vehiculos_filtrado[['Year', 'Miles per gallon (mpg)', 'CO2 (p/mile)', 'FuelCost']]
-                    scaler = StandardScaler()
-                    X_scaled = scaler.fit_transform(X)
-                    # Hacemos las predicciones con el modelo 
-                    predicciones = modelo_ML1.predict(X_scaled)
-                    # Añadimos las predicciones al dataframe
-                    Vehiculos_filtrado['Eficiencia'] = predicciones
-                    # Ordenas por eficiencia de mayor a menor
-                    vehiculos_recomendados = Vehiculos_filtrado.sort_values(by='Eficiencia', ascending=False).head(5)
-                    st.session_state['dataset'] = vehiculos_recomendados
-                    # Mostrar los 5 vehículos recomendados 
-                    st.write('Los 5 vehículos mas eficientes energeticamente son:')
-                    st.dataframe(vehiculos_recomendados[['Year', 'Vehículo_unico']])
-                else: 
-                    st.write('No se encontraron vehículos que cumplan con ese citerio')
-            # Condición si solo elige año
-            elif año != 'Todos' and fabricante == 'Todos':
-                # Filtrar vehiculos por año 
-                Vehiculos_filtrado = df_Vehiculos_F[df_Vehiculos_F['Year'] == año]
-                # Verificar si hay vehículos que cumplar con esta condición 
-                if len(Vehiculos_filtrado) > 0:
-                        #Estandarizamos las caracteristicas
-                        X = Vehiculos_filtrado[['Year', 'Miles per gallon (mpg)', 'CO2 (p/mile)', 'FuelCost']]
-                        scaler = StandardScaler()
-                        X_scaled = scaler.fit_transform(X)
-                        # Hacemos las predicciones con el modelo 
-                        predicciones = modelo_ML1.predict(X_scaled)
-                        # Añadimos las predicciones al dataframe
-                        Vehiculos_filtrado['Eficiencia'] = predicciones
-                        # Ordenas por eficiencia de mayor a menor
-                        vehiculos_recomendados = Vehiculos_filtrado.sort_values(by='Eficiencia', ascending=False).head(5)
-                        st.session_state['dataset'] = vehiculos_recomendados
-                        # Mostrar los 5 vehículos recomendados 
-                        st.write('Los 5 vehículos mas eficientes energeticamente son:')
-                        st.dataframe(vehiculos_recomendados[['Year', 'Vehículo_unico']])
-                else: 
-                        st.write('No se encontraron vehículos que cumplan con ese citerio')
-            else:
-                # Sin filtro
-                Vehiculos_filtrado = df_Vehiculos_F
-                # Verificar si hay vehículos que cumplar con esta condición 
-                if len(Vehiculos_filtrado) > 0:
-                    #Estandarizamos las caracteristicas
-                    X = Vehiculos_filtrado[['Year', 'Miles per gallon (mpg)', 'CO2 (p/mile)', 'FuelCost']]
-                    scaler = StandardScaler()
-                    X_scaled = scaler.fit_transform(X)
-                    # Hacemos las predicciones con el modelo 
-                    predicciones = modelo_ML1.predict(X_scaled)
-                    # Añadimos las predicciones al dataframe
-                    Vehiculos_filtrado['Eficiencia'] = predicciones
-                    # Ordenas por eficiencia de mayor a menor
-                    vehiculos_recomendados = Vehiculos_filtrado.sort_values(by='Eficiencia', ascending=False).head(5)
-                    st.session_state['dataset'] = vehiculos_recomendados
-                    # Mostrar los 5 vehículos recomendados 
-                    st.write('Los 5 vehículos mas eficientes energeticamente son:')
-                    st.dataframe(vehiculos_recomendados[['Year', 'Vehículo_unico']])
-                else: 
-                    st.write('No se encontraron vehículos que cumplan con ese citerio')
+        col1, col2 = st.columns(2)
+        with col1:
+            año = st.selectbox('Año del vehículo', anios)
+        with col2:
+            fabricante = st.selectbox('Marca del vehículo', marcas)
 
-        st.title('Costo enérgetico por millas')
+        if st.button('Obtener recomendación', type='primary'):
+            filtro = df_vehiculos.copy()
+            if año != 'Todos':
+                filtro = filtro[filtro['Year'] == año]
+            if fabricante != 'Todos':
+                filtro = filtro[filtro['Manufacturer'] == fabricante]
+            _predecir_y_mostrar(filtro, modelo)
+
+        # ── Simulador de consumo ──────────────────────────────────────────────
+        st.markdown("---")
+        st.subheader('Simulador de consumo por kilómetros')
+
         if 'dataset' in st.session_state and not st.session_state['dataset'].empty:
             dataset = st.session_state['dataset']
-            # Usar las filas como opción múltiple
-            Vehiculos = dataset['Vehículo_unico'].tolist()
-            Vehiculos.insert(0, 'Seleccion')
-            seleccion = st.selectbox('Selecciona un vehículo:', Vehiculos)
-            # Mostrar selección
-            if seleccion != 'Seleccion':
-                # Filtrar el dataset para mostrar solo las filas seleccionadas
-                seleccionados = dataset[dataset['Vehículo_unico'] == seleccion].iloc[0]
-                st.write("Detalles del vehículo")
-                st.write(f"Vehículo seleccionado: {seleccionados['Vehículo_unico']}")
-                st.write(f"Costo de combustible por galón: ${seleccionados['FuelCost']} US")
-                st.write(f"Emisiones de CO2 por milla: {seleccionados['CO2 (p/mile)']} g/milla")
-                st.write(f"Millas por galón: {seleccionados['Miles per gallon (mpg)']} mpg")
-                st.write(f"Categoria del vehículo: {seleccionados['Categoria']}")
-                st.write(f"Modelo: {seleccionados['Year']}")
+            opciones = ['— Seleccioná un vehículo —'] + dataset['Vehículo_unico'].tolist()
+            seleccion = st.selectbox('Vehículo:', opciones)
 
-                # Insertar una imagen del vehículo
-                # URL de la imagen (ejemplo)
-                image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTAynn1hP5HC3WnHtWHmrcMPpzVRpkYq9ZWQg&s"
-                caption_text = f"Imagen del vehículo: {seleccionados['Vehículo_unico']}"
+            if seleccion != '— Seleccioná un vehículo —':
+                v = dataset[dataset['Vehículo_unico'] == seleccion].iloc[0]
 
-                # URL de la imagen (ejemplo)
-                image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTAynn1hP5HC3WnHtWHmrcMPpzVRpkYq9ZWQg&s"
-                # Mostrar la imagen desde la URL con un caption dinámico basado en el vehículo seleccionado
-                st.image(image_url, caption=f"Imagen del vehículo: {seleccionados['Vehículo_unico']}", width=400)
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Costo combustible/galón", f"${v['FuelCost']:.2f} US")
+                m2.metric("CO₂ por milla", f"{v['CO2 (p/mile)']:.1f} g")
+                m3.metric("Millas por galón", f"{v['Miles per gallon (mpg)']:.1f} mpg")
+                st.caption(f"Categoría: **{v['Categoria']}** · Año: **{int(v['Year'])}**")
 
-                
+                km = st.number_input('Kilómetros a recorrer', min_value=0, max_value=1_000_000, step=100)
+                if km > 0:
+                    km_por_litro = v['Miles per gallon (mpg)'] * 0.425144
+                    litros = km / km_por_litro
+                    costo = litros * v['FuelCost']
+                    co2 = km * (v['CO2 (p/mile)'] / 1.60934)
 
-                # Pedir al usuario que ingrese la cantidad de Kilometros
-                st.write('**Consumo energetico por kilometros**')
-                Kilometros = st.number_input('Ingresa la cantidad de Kilometros', min_value=0, max_value=1000000)
-                # Realizar cálculos
-                Km_por_Litro = seleccionados['Miles per gallon (mpg)'] * 0.425144
-                # Convertir CO2 por milla a CO2 por kilómetro
-                co2_total_km = seleccionados['CO2 (p/mile)'] / 1.60934
-                # Hacemos calculos
-                combustible_usado = Kilometros / Km_por_Litro  # Cantidad de litros por kilometro
-                costo_total_combustible = combustible_usado * seleccionados['FuelCost']  # Costo total de combustible
-                CO2_total = Kilometros * co2_total_km  # Emisiones de CO2 totales
-                # Mostrar los resultados
-                st.write(f"Para {Kilometros} kilometros, el vehículo {seleccionados['Vehículo_unico']} gastará:")
-                st.write(f"- {combustible_usado:.2f} litros de combustible")
-                st.write(f"- Un costo total de combustible de ${costo_total_combustible:.2f} US")
-                st.write(f"- Emitirá un total de {CO2_total:.2f} gramos de CO2")
-            else:
-                st.write('No se a elegido vehículo')
+                    r1, r2, r3 = st.columns(3)
+                    r1.metric("Combustible usado", f"{litros:.1f} L")
+                    r2.metric("Costo total", f"${costo:.2f} US")
+                    r3.metric("CO₂ emitido", f"{co2:,.0f} g")
         else:
-            st.write("No se ha generado ninguna recomendación")
+            st.info("Generá una recomendación primero para usar el simulador.")

@@ -1,1 +1,63 @@
+# Entornos virtuales
+venv/
+venv-project/
+env/
+.venv/
+ENV/
+
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example
+*.key
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Modelos serializados grandes (>50 MB — descargar por separado)
+random_forest_regressor.joblib
+
+# Distribución / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Tests / cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Terraform (heredado del gitignore anterior)
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# Carpeta del entorno del equipo
 arcope/

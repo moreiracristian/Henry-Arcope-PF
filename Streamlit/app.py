@@ -47,8 +47,7 @@ st.markdown("""
 
 
 # Capturar los parámetros de consulta
-query_params = st.experimental_get_query_params()
-page = query_params.get("page", ["inicio"])[0]  # Página predeterminada es 'home'
+page = st.query_params.get("page", "inicio")
 
 
 # CSS para personalizar el navbar y eliminar los espacios sobrantes
@@ -159,22 +158,22 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 if page == "inicio":
-    st.experimental_set_query_params(page="inicio")
+    st.query_params["page"] = "inicio"
     inicio.inicio_page()
 elif page == "analisis":
-    st.experimental_set_query_params(page="analisis")
+    st.query_params["page"] = "analisis"
     analisis.analisis_page()
 elif page == "dashboard":
-    st.experimental_set_query_params(page="dashboard")
+    st.query_params["page"] = "dashboard"
     dashboard.dashboard_page()
 elif page == "modelos":
-    st.experimental_set_query_params(page="modelos")
+    st.query_params["page"] = "modelos"
     modelos.modelos_page()
 elif page == "chatbot":
-    st.experimental_set_query_params(page="chatbot")
+    st.query_params["page"] = "chatbot"
     chatbot.chatbot_page()
 elif page == "acercaDe":
-    st.experimental_set_query_params(page="acercaDe")
+    st.query_params["page"] = "acercaDe"
     acercaDe.acercaDe_page()
 else:
     st.error("Página no encontrada")

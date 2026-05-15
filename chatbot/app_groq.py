@@ -1,8 +1,9 @@
+import os
 from groq import Groq
 import streamlit as st
 
-# Inicializo el cliente de Groq
-client = Groq(api_key="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")
+api_key = os.environ.get("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", "")
+client = Groq(api_key=api_key)
 
 # CSS personalizado para estilo similar a Uber
 st.markdown(
