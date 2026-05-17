@@ -23,13 +23,12 @@ def analisis_page():
          'Análisis de Costos Operacionales de Vehículos')
     )
 
-    # Cargar los datasets utilizando rutas relativas
     try:
         df_car_resale = pd.read_csv('./Data/car_resale_prices_clean.csv')
-        df_yellow_taxi = pd.read_parquet('./Data/yellow_tripdata.parquet')
         df_vehicle_costs = pd.read_csv('./Data/costo_operacional_vehiculos_clean.csv')
     except Exception as e:
         st.error(f"Error al cargar los datasets: {e}")
+        return
 
     # Sección 1: Análisis de Precios de Reventa de Autos
     if analisis == 'Análisis de Precios de Reventa de Autos':

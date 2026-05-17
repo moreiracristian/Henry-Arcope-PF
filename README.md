@@ -114,9 +114,8 @@ pip install -r modelos_ML/requirements.txt
 cp .env.example .env
 # Editar .env con tus credenciales (Groq API key, MySQL, etc.)
 
-# 5. Levantar la app principal
-cd Streamlit
-streamlit run app.py
+# 5. Levantar la app principal (desde la raíz del proyecto)
+streamlit run Streamlit/app.py
 ```
 
 La app estará disponible en `http://localhost:8501`.
